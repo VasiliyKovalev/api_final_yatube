@@ -1,19 +1,14 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import filters, mixins, viewsets
+from rest_framework import filters, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import LimitOffsetPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from posts.models import Group, Post
 from .permissions import IsAuthorOrReadOnly
+from .viewsets import CreateListViewSet
 from .serializers import (
     CommentSerializer, FollowSerializer, GroupSerializer, PostSerializer)
-
-
-class CreateListViewSet(
-    mixins.CreateModelMixin, mixins.ListModelMixin, viewsets.GenericViewSet
-):
-    pass
 
 
 class PostViewSet(viewsets.ModelViewSet):
@@ -30,22 +25,23 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     permission_classes = (IsAuthorOrReadOnly,)
 
+    def get_commented_post(self):
+        return get_object_or_404(Post, pk=self.kwargs['post_id'])
+
     def get_queryset(self):
-        return get_object_or_404(
-            Post, pk=self.kwargs['post_id']).comments.all()
+        return self.get_commented_post().comments.all()
 
     def perform_create(self, serializer):
         serializer.save(
             author=self.request.user,
-            post=get_object_or_404(
-                Post, pk=self.kwargs['post_id']
-            )
+            post=self.get_commented_post()
         )
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
+    permission_classes = (AllowAny,)
 
 
 class FollowViewSet(CreateListViewSet):
@@ -59,5 +55,3 @@ class FollowViewSet(CreateListViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-        if serializer.data['user'] == serializer.data['following']:
-            raise ValidationError('Нельзя подписаться на самого себя!')

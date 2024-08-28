@@ -12,7 +12,7 @@ router_v1.register(
     CommentViewSet,
     basename='comments'
 )
-router_v1.register('follow', FollowViewSet, basename='follow')
+router_v1.register('follow', FollowViewSet, basename='subscriptions')
 
 
 v1_urlpatterns = [
